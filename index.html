@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order Tracking — Cyanide Sugar 3D Prints</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --accent:  #6366f1;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger:  #ef4444;
+    --text:    #1e293b;
+    --sub:     #64748b;
+    --border:  #e2e8f0;
+    --bg:      #f8fafc;
+    --card:    #ffffff;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .topbar {
+    background: #1e293b;
+    color: #fff;
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar-brand {
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+  }
+  .topbar-sub {
+    font-size: 12px;
+    color: #94a3b8;
+  }
+
+  /* Layout */
+  .page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 16px 64px;
+  }
+
+  /* Search form */
+  .search-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    margin-top: 24px;
+  }
+  .search-card h2 { font-size: 18px; margin-bottom: 8px; }
+  .search-card p  { font-size: 14px; color: var(--sub); margin-bottom: 24px; }
+  .search-row { display: flex; gap: 8px; max-width: 400px; margin: 0 auto; }
+  .search-row input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .search-row input:focus { border-color: var(--accent); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn-primary  { background: var(--accent); color: #fff; }
+  .btn-ghost    { background: transparent; color: var(--sub); border: 1px solid var(--border); }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-top: 16px;
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text);
+  }
+  .card-body { padding: 20px; }
+
+  /* Status badge */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .badge-active    { background: #eef2ff; color: var(--accent); }
+  .badge-completed { background: #f0fdf4; color: #16a34a; }
+  .badge-on-hold   { background: #fffbeb; color: #b45309; }
+  .badge-cancelled { background: #fff1f2; color: var(--danger); }
+  .badge-default   { background: #f1f5f9; color: var(--sub); }
+
+  /* Order summary */
+  .order-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .order-meta {
+    font-size: 13px;
+    color: var(--sub);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  /* Progress bar */
+  .progress-wrap { margin-top: 4px; }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--sub);
+    margin-bottom: 8px;
+  }
+  .progress-label strong { color: var(--text); }
+  .progress-bar {
+    height: 10px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width .4s ease;
+  }
+  .progress-fill.complete { background: var(--success); }
+
+  /* Public note */
+  .note-box {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+
+  /* Photo gallery */
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+  }
+  .photo-thumb {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform .2s;
+  }
+  .photo-thumb:hover img { transform: scale(1.04); }
+  .photo-caption {
+    font-size: 12px;
+    color: var(--sub);
+    margin-top: 5px;
+    text-align: center;
+  }
+
+  /* Lightbox */
+  .lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.85);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox img {
+    max-width: 90vw;
+    max-height: 80vh;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+  .lightbox-caption { color: #cbd5e1; font-size: 14px; }
+  .lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    color: #fff;
+    font-size: 28px;
+    cursor: pointer;
+    line-height: 1;
+    background: none;
+    border: none;
+  }
+
+  /* Camera */
+  .camera-wrap { position: relative; background: #000; border-radius: 8px; overflow: hidden; }
+  .camera-wrap video { width: 100%; display: block; max-height: 420px; }
+  .camera-error {
+    padding: 32px;
+    text-align: center;
+    color: var(--sub);
+    font-size: 14px;
+  }
+
+  /* States */
+  .loading, .not-found {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--sub);
+    font-size: 15px;
+  }
+  .not-found .icon { font-size: 40px; margin-bottom: 12px; }
+  .not-found h3    { font-size: 17px; color: var(--text); margin-bottom: 6px; }
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 480px) {
+    .search-row { flex-direction: column; }
+    .photo-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-brand">Cyanide Sugar 3D Prints</span>
+  <span class="topbar-sub">Order Tracking</span>
+</div>
+
+<div class="page">
+  <div id="root"></div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <img id="lb-img" src="" alt="">
+  <div class="lightbox-caption" id="lb-caption"></div>
+</div>
+
+<script>
+const WORKER_URL = 'https://client-tracking-api.cyanidesugar.com';
+
+const root = document.getElementById('root');
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function safeUrl(url) {
+  try {
+    const u = new URL(url);
+    return (u.protocol === 'https:' || u.protocol === 'http:') ? url : null;
+  } catch { return null; }
+}
+
+function badge(status) {
+  const map = { active: 'active', completed: 'completed', 'on-hold': 'on-hold', cancelled: 'cancelled' };
+  const cls = map[status] ? `badge-${map[status]}` : 'badge-default';
+  const label = status === 'on-hold' ? 'On Hold' : (status || 'Unknown');
+  return `<span class="badge ${cls}">${esc(label)}</span>`;
+}
+
+function render(html) { root.innerHTML = html; }
+
+function renderLoading() {
+  render(`<div class="loading"><div class="spinner"></div>Loading your order...</div>`);
+}
+
+function renderNotFound(msg = 'This order link is not active or could not be found.') {
+  render(`
+    <div class="card" style="margin-top:24px">
+      <div class="card-body not-found">
+        <div class="icon">&#128274;</div>
+        <h3>Order Not Found</h3>
+        <p>${esc(msg)}</p>
+        <br>
+        <button class="btn btn-ghost" onclick="showSearch()">Try another ID</button>
+      </div>
+    </div>
+  `);
+}
+
+function renderSearch() {
+  render(`
+    <div class="search-card">
+      <h2>Track Your Order</h2>
+      <p>Enter the order ID from your confirmation email to see your print status.</p>
+      <div class="search-row">
+        <input id="oid" type="text" placeholder="Order ID" autocomplete="off" onkeydown="if(event.key==='Enter')lookup()">
+        <button class="btn btn-primary" onclick="lookup()">Track</button>
+      </div>
+    </div>
+  `);
+  document.getElementById('oid')?.focus();
+}
+
+function renderOrder(data) {
+  const pct = data.total_units > 0
+    ? Math.round((data.completed_units / data.total_units) * 100)
+    : null;
+  const done = pct === 100;
+
+  const progressHtml = pct !== null ? `
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span><strong>${data.completed_units}</strong> of <strong>${data.total_units}</strong> units complete</span>
+        <span>${pct}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill ${done ? 'complete' : ''}" style="width:${pct}%"></div>
+      </div>
+    </div>` : '';
+
+  const noteHtml = data.public_note ? `
+    <div class="card">
+      <div class="card-header">Message from us</div>
+      <div class="card-body">
+        <div class="note-box">${esc(data.public_note)}</div>
+      </div>
+    </div>` : '';
+
+  const photosHtml = data.photos && data.photos.length ? `
+    <div class="card">
+      <div class="card-header">Progress Photos</div>
+      <div class="card-body">
+        <div class="photo-grid">
+          ${data.photos.filter(p => safeUrl(p.url)).map((p, i) => `
+            <div>
+              <div class="photo-thumb" onclick="openLightbox(${i})">
+                <img src="${esc(p.url)}" alt="${esc(p.caption || 'Progress photo')}" loading="lazy">
+              </div>
+              ${p.caption ? `<div class="photo-caption">${esc(p.caption)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>` : '';
+
+  const cameraHtml = data.assigned_camera_url ? `
+    <div class="card">
+      <div class="card-header">Live Camera Feed</div>
+      <div class="card-body" style="padding:0">
+        <div class="camera-wrap">
+          <video id="cam-video" controls autoplay muted playsinline></video>
+        </div>
+      </div>
+    </div>` : '';
+
+  render(`
+    <div class="card" style="margin-top:24px">
+      <div class="card-body">
+        <div class="order-title">Your Order</div>
+        <div class="order-meta">
+          ${badge(data.status)}
+          ${done ? `<span style="color:var(--success);font-weight:600;font-size:13px">&#10003; All units complete</span>` : ''}
+        </div>
+        ${progressHtml}
+      </div>
+    </div>
+    ${noteHtml}
+    ${photosHtml}
+    ${cameraHtml}
+  `);
+
+  if (data.photos && data.photos.length) {
+    window._photos = data.photos;
+  }
+
+  if (data.assigned_camera_url && safeUrl(data.assigned_camera_url)) {
+    initCamera(data.assigned_camera_url);
+  }
+}
+
+function initCamera(url) {
+  const video = document.getElementById('cam-video');
+  if (!video) return;
+  if (Hls.isSupported()) {
+    const hls = new Hls();
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.ERROR, (_, d) => {
+      if (d.fatal) {
+        video.closest('.camera-wrap').innerHTML =
+          '<div class="camera-error">Camera feed is currently unavailable. Check back when your print is running.</div>';
+      }
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;
+  } else {
+    video.closest('.camera-wrap').innerHTML =
+      '<div class="camera-error">Live video is not supported in this browser.</div>';
+  }
+}
+
+function openLightbox(i) {
+  const photos = window._photos || [];
+  const p = photos[i];
+  if (!p || !safeUrl(p.url)) return;
+  document.getElementById('lb-img').src = p.url;
+  document.getElementById('lb-caption').textContent = p.caption || '';
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox(e) {
+  if (e && e.target !== document.getElementById('lightbox') && !e.target.classList.contains('lightbox-close')) return;
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lb-img').src = '';
+}
+
+function showSearch() { renderSearch(); }
+
+async function lookup() {
+  const id = (document.getElementById('oid')?.value || '').trim();
+  if (!id) return;
+  fetchOrder(id);
+}
+
+async function fetchOrder(id) {
+  renderLoading();
+  try {
+    const res = await fetch(`${WORKER_URL}/api/track?id=${encodeURIComponent(id)}`);
+    if (res.status === 404) { renderNotFound(); return; }
+    if (res.status === 400) { renderNotFound('That doesn\'t look like a valid order ID.'); return; }
+    if (!res.ok) { renderNotFound('Something went wrong. Please try again later.'); return; }
+    const data = await res.json();
+    renderOrder(data);
+  } catch {
+    renderNotFound('Could not connect to the tracking service. Please try again later.');
+  }
+}
+
+// On load: check for ?id= in URL
+(function init() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  if (id) {
+    fetchOrder(id);
+  } else {
+    renderSearch();
+  }
+})();
+</script>
+</body>
+</html>
