@@ -1,7 +1,7 @@
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const ALLOWED_ORIGINS = new Set([
-  'https://track.cyanidesugar.com',
+  'https://track.cyanidesugar3dprints.com',
   'https://client-side-dashboard.pages.dev',
   'http://localhost:3000',
   'http://127.0.0.1:3000',

@@ -22,7 +22,7 @@ Client Side Dashboard/
 
 **Customer flow:**
 1. Admin enables tracking on a project in the Projects Dashboard, sets units/note/photos
-2. Admin copies the tracking link (`https://track.cyanidesugar.com/?id=<project-uuid>`)
+2. Admin copies the tracking link (`https://track.cyanidesugar3dprints.com/?id=<project-uuid>`)
 3. Customer clicks link → tracking page loads → calls Cloudflare Worker API
 4. Worker queries Supabase using service key, returns only safe fields
 5. Page renders status, progress, photos, optional camera feed
@@ -56,7 +56,7 @@ Storage bucket: `project-photos` (public read) — created manually in Supabase 
 
 **Name:** `client-tracking-api`
 **Endpoint:** `GET /api/track?id=<uuid>` → returns JSON or 404
-**CORS:** allows `track.cyanidesugar.com` and localhost for dev
+**CORS:** allows `track.cyanidesugar3dprints.com` and localhost for dev
 
 Secrets (set via `wrangler secret put`):
 - `SUPABASE_URL`
@@ -78,7 +78,7 @@ After deploying, set a custom domain `track-api.cyanidesugar.com` in Cloudflare 
 
 - GitHub repo: `cyanidesugar/client-side-dashboard`
 - Cloudflare Pages: connect repo, no build command, publish directory = `/`
-- Custom domain: `track.cyanidesugar.com`
+- Custom domain: `track.cyanidesugar3dprints.com`
 - Update `WORKER_URL` constant in `index.html` to the Worker's deployed URL
 
 ## Worker URL constant
