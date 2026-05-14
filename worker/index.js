@@ -56,7 +56,7 @@ export default {
       return json({ error: 'Invalid order ID' }, 400, origin);
     }
 
-    let project, photos;
+    let project, photos, invoices;
     try {
       const projects = await supabaseFetch(
         env,
@@ -66,16 +66,15 @@ export default {
       if (!projects.length) return json({ error: 'Order not found' }, 404, origin);
       project = projects[0];
 
-      photos = await supabaseFetch(
-        env,
-        'project_photos',
-        `?project_id=eq.${id}&select=id,url,caption,uploaded_at&order=uploaded_at.asc`
-      );
+      [photos, invoices] = await Promise.all([
+        supabaseFetch(env, 'project_photos', `?project_id=eq.${id}&select=id,url,caption,uploaded_at&order=uploaded_at.asc`),
+        supabaseFetch(env, 'invoices', `?project_id=eq.${id}&select=invoice_number,status,amount,issue_date,due_date,paid_date&order=issue_date.asc`),
+      ]);
     } catch (e) {
       console.error('Tracking API error:', e);
       return json({ error: 'Service unavailable' }, 503, origin);
     }
 
-    return json({ ...project, photos: photos || [] }, 200, origin);
+    return json({ ...project, photos: photos || [], invoices: invoices || [] }, 200, origin);
   },
 };

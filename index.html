@@ -316,6 +316,27 @@ function badge(status) {
   return `<span class="badge ${cls}">${esc(label)}</span>`;
 }
 
+function invoiceBadge(status) {
+  const map = {
+    draft:     { cls: 'badge-default',   label: 'Not yet issued' },
+    sent:      { cls: 'badge-active',    label: 'Invoice issued' },
+    paid:      { cls: 'badge-completed', label: 'Paid' },
+    overdue:   { cls: 'badge-cancelled', label: 'Overdue' },
+  };
+  const { cls, label } = map[status] || { cls: 'badge-default', label: status || 'Unknown' };
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function money(amount) {
+  return 'A$' + Number(amount || 0).toFixed(2);
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  return new Date(+y, +m - 1, +day).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 function render(html) { root.innerHTML = html; }
 
 function renderLoading() {
@@ -392,6 +413,32 @@ function renderOrder(data) {
       </div>
     </div>` : '';
 
+  const invoicesHtml = data.invoices && data.invoices.length ? `
+    <div class="card">
+      <div class="card-header">Invoices</div>
+      <div class="card-body" style="padding:0">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1px solid var(--border)">
+              <th style="padding:10px 16px;text-align:left;font-weight:600;color:var(--sub)">Invoice</th>
+              <th style="padding:10px 16px;text-align:left;font-weight:600;color:var(--sub)">Status</th>
+              <th style="padding:10px 16px;text-align:right;font-weight:600;color:var(--sub)">Amount</th>
+              <th style="padding:10px 16px;text-align:left;font-weight:600;color:var(--sub)">Due</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.invoices.map((inv, i) => `
+            <tr style="${i < data.invoices.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+              <td style="padding:12px 16px;color:var(--sub)">${inv.invoice_number ? esc(inv.invoice_number) : '—'}</td>
+              <td style="padding:12px 16px">${invoiceBadge(inv.status)}</td>
+              <td style="padding:12px 16px;text-align:right;font-weight:600">${money(inv.amount)}</td>
+              <td style="padding:12px 16px;color:var(--sub)">${inv.status === 'paid' ? '&#10003; ' + fmtDate(inv.paid_date) : fmtDate(inv.due_date)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : '';
+
   const cameraHtml = data.assigned_camera_url ? `
     <div class="card">
       <div class="card-header">Live Camera Feed</div>
@@ -414,6 +461,7 @@ function renderOrder(data) {
       </div>
     </div>
     ${noteHtml}
+    ${invoicesHtml}
     ${photosHtml}
     ${cameraHtml}
   `);
