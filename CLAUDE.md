@@ -53,23 +53,31 @@ New columns added to `projects` table:
 - `public_note text`
 - `tracking_enabled boolean DEFAULT false`
 - `assigned_camera_url text`
+- `estimated_completion date`
+- `delivery_status text DEFAULT 'pending'` (values: pending, in_progress, ready_for_pickup, dispatched)
+- `tracking_number text`
 
 New table `project_photos`:
-- `id uuid PK`
-- `project_id uuid FK → projects(id) ON DELETE CASCADE`
-- `url text` — Supabase Storage public URL
-- `caption text`
-- `uploaded_at timestamptz`
-- Open RLS policy
+- `id uuid PK`, `project_id uuid FK`, `url text`, `caption text`, `uploaded_at timestamptz`. Open RLS.
 
-Storage bucket: `project-photos` — already created, set to public.  
-Storage RLS policy already applied (allows all operations on `project-photos` bucket).
+New table `project_updates`:
+- `id uuid PK`, `project_id uuid FK`, `message text NOT NULL`, `created_at timestamptz`. Open RLS.
+- Activity feed — admin adds updates, client sees them in chronological order.
+
+New table `project_approvals`:
+- `id uuid PK`, `project_id uuid FK`, `file_url text NOT NULL`, `file_caption text`, `approval_status text DEFAULT 'pending'` (pending/approved/changes_requested), `approval_note text`, `approved_at timestamptz`, `created_at timestamptz`. Open RLS.
+- Admin uploads design file → client approves or requests changes via tracking page → Worker PATCH endpoint updates the record.
+
+Storage bucket: `project-photos` — public, open RLS. Used for both progress photos (`projectId/timestamp.ext`) and approval files (`projectId/approvals/timestamp.ext`).
 
 ## Cloudflare Worker
 
 **Name:** `client-tracking-api`  
 **Live URL:** `https://client-tracking-api.esther-4f3.workers.dev`  
-**Endpoint:** `GET /api/track?id=<uuid>` → JSON or 404  
+**Endpoints:**
+- `GET /api/track?id=<uuid>` → JSON with project fields, photos, invoices, updates, approval (or 404)
+- `POST /api/approve?id=<project_uuid>` with body `{ approval_id, status, note }` → patches `project_approvals` record
+
 **CORS allowed origins:** `track.cyanidesugar3dprints.com`, `client-side-dashboard.pages.dev`, localhost ports 3000 and 5500
 
 **Secrets already set in Cloudflare:**
