@@ -207,6 +207,45 @@
     text-align: center;
   }
 
+  /* Delivery status */
+  .delivery-card {
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .delivery-card.pickup  { background:#f0fdf4; border:1px solid #bbf7d0; }
+  .delivery-card.shipped { background:#eef2ff; border:1px solid #c7d2fe; }
+  .delivery-card .d-icon { font-size: 28px; }
+  .delivery-card .d-title { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+  .delivery-card .d-sub   { font-size: 13px; color: var(--sub); }
+
+  /* Approval */
+  .approval-file {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .approval-file img { width: 100%; max-height: 320px; object-fit: contain; display: block; background: #f8fafc; }
+  .approval-file .approval-link { padding: 12px 16px; font-size: 14px; }
+  .approval-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-approve  { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+  .btn-changes  { background: #fff1f2; color: var(--danger); border: 1px solid #fecaca; }
+  .approve-note { width: 100%; margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; resize: vertical; min-height: 80px; display: none; }
+  .approve-note.open { display: block; }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 20px; }
+  .timeline::before { content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 2px; background: var(--border); border-radius: 2px; }
+  .tl-item { position: relative; margin-bottom: 16px; }
+  .tl-item:last-child { margin-bottom: 0; }
+  .tl-dot { position: absolute; left: -18px; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; box-shadow: 0 0 0 1px var(--accent); }
+  .tl-msg  { font-size: 14px; color: var(--text); line-height: 1.4; }
+  .tl-time { font-size: 11px; color: var(--sub); margin-top: 2px; }
+
   /* Lightbox */
   .lightbox {
     display: none;
@@ -371,6 +410,18 @@ function renderSearch() {
   document.getElementById('oid')?.focus();
 }
 
+function relativeTime(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return 'Just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7)  return `${d}d ago`;
+  return fmtDate(ts.slice(0, 10));
+}
+
 function renderOrder(data) {
   const pct = data.total_units > 0
     ? Math.round((data.completed_units / data.total_units) * 100)
@@ -388,28 +439,85 @@ function renderOrder(data) {
       </div>
     </div>` : '';
 
+  // Delivery status
+  let deliveryHtml = '';
+  if (data.delivery_status === 'ready_for_pickup') {
+    deliveryHtml = `
+      <div class="delivery-card pickup">
+        <div class="d-icon">&#128230;</div>
+        <div>
+          <div class="d-title" style="color:#16a34a">Ready for Pickup</div>
+          <div class="d-sub">Your order is complete and ready to collect. We'll be in touch shortly.</div>
+        </div>
+      </div>`;
+  } else if (data.delivery_status === 'dispatched') {
+    deliveryHtml = `
+      <div class="delivery-card shipped">
+        <div class="d-icon">&#128666;</div>
+        <div>
+          <div class="d-title" style="color:var(--accent)">Order Dispatched</div>
+          <div class="d-sub">${data.tracking_number ? `Tracking: <strong>${esc(data.tracking_number)}</strong>` : 'Your order is on its way!'}</div>
+        </div>
+      </div>`;
+  }
+
+  // Design approval
+  let approvalHtml = '';
+  if (data.approval) {
+    const ap = data.approval;
+    const isImage = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(ap.file_url);
+    const statusBadge = ap.approval_status === 'approved'
+      ? '<span class="badge badge-completed">Approved</span>'
+      : ap.approval_status === 'changes_requested'
+      ? '<span class="badge badge-cancelled">Changes Requested</span>'
+      : '<span class="badge badge-active">Awaiting your approval</span>';
+
+    const actionHtml = ap.approval_status === 'pending' ? `
+      <div class="approval-actions" id="approval-actions">
+        <button class="btn btn-approve" onclick="submitApproval('${esc(ap.id)}','approved')">&#10003; Approve Design</button>
+        <button class="btn btn-changes" onclick="showChangeNote()">&#8634; Request Changes</button>
+        <textarea class="approve-note" id="change-note" placeholder="Describe what you'd like changed…"></textarea>
+        <button class="btn btn-changes" id="send-changes-btn" style="display:none" onclick="submitApproval('${esc(ap.id)}','changes_requested')">Send Request</button>
+      </div>` : ap.approval_note ? `<div class="note-box" style="margin-top:10px;font-size:13px">${esc(ap.approval_note)}</div>` : '';
+
+    approvalHtml = `
+      <div class="card">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Design Approval</span>${statusBadge}
+        </div>
+        <div class="card-body">
+          ${ap.file_caption ? `<div style="font-size:13px;color:var(--sub);margin-bottom:10px">${esc(ap.file_caption)}</div>` : ''}
+          <div class="approval-file">
+            ${isImage && safeUrl(ap.file_url)
+              ? `<img src="${esc(ap.file_url)}" alt="Design file">`
+              : `<div class="approval-link"><a href="${esc(ap.file_url)}" target="_blank" rel="noopener">View design file &#8599;</a></div>`}
+          </div>
+          ${actionHtml}
+        </div>
+      </div>`;
+  }
+
+  // Activity feed
+  const updatesHtml = data.updates && data.updates.length ? `
+    <div class="card">
+      <div class="card-header">Order Updates</div>
+      <div class="card-body">
+        <div class="timeline">
+          ${data.updates.map(u => `
+            <div class="tl-item">
+              <div class="tl-dot"></div>
+              <div class="tl-msg">${esc(u.message)}</div>
+              <div class="tl-time">${relativeTime(u.created_at)}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>` : '';
+
   const noteHtml = data.public_note ? `
     <div class="card">
       <div class="card-header">Message from us</div>
       <div class="card-body">
         <div class="note-box">${esc(data.public_note)}</div>
-      </div>
-    </div>` : '';
-
-  const photosHtml = data.photos && data.photos.length ? `
-    <div class="card">
-      <div class="card-header">Progress Photos</div>
-      <div class="card-body">
-        <div class="photo-grid">
-          ${data.photos.filter(p => safeUrl(p.url)).map((p, i) => `
-            <div>
-              <div class="photo-thumb" onclick="openLightbox(${i})">
-                <img src="${esc(p.url)}" alt="${esc(p.caption || 'Progress photo')}" loading="lazy">
-              </div>
-              ${p.caption ? `<div class="photo-caption">${esc(p.caption)}</div>` : ''}
-            </div>
-          `).join('')}
-        </div>
       </div>
     </div>` : '';
 
@@ -439,7 +547,24 @@ function renderOrder(data) {
       </div>
     </div>` : '';
 
-  const cameraHtml = data.assigned_camera_url ? `
+  const photosHtml = data.photos && data.photos.length ? `
+    <div class="card">
+      <div class="card-header">Progress Photos</div>
+      <div class="card-body">
+        <div class="photo-grid">
+          ${data.photos.filter(p => safeUrl(p.url)).map((p, i) => `
+            <div>
+              <div class="photo-thumb" onclick="openLightbox(${i})">
+                <img src="${esc(p.url)}" alt="${esc(p.caption || 'Progress photo')}" loading="lazy">
+              </div>
+              ${p.caption ? `<div class="photo-caption">${esc(p.caption)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>` : '';
+
+  const cameraHtml = data.assigned_camera_url && safeUrl(data.assigned_camera_url) ? `
     <div class="card">
       <div class="card-header">Live Camera Feed</div>
       <div class="card-body" style="padding:0">
@@ -456,10 +581,14 @@ function renderOrder(data) {
         <div class="order-meta">
           ${badge(data.status)}
           ${done ? `<span style="color:var(--success);font-weight:600;font-size:13px">&#10003; All units complete</span>` : ''}
+          ${data.estimated_completion ? `<span style="font-size:13px;color:var(--sub)">Est. completion: <strong>${fmtDate(data.estimated_completion)}</strong></span>` : ''}
         </div>
         ${progressHtml}
       </div>
     </div>
+    ${deliveryHtml}
+    ${approvalHtml}
+    ${updatesHtml}
     ${noteHtml}
     ${invoicesHtml}
     ${photosHtml}
@@ -513,6 +642,35 @@ function closeLightbox(e) {
 
 function showSearch() { renderSearch(); }
 
+function showChangeNote() {
+  const note = document.getElementById('change-note');
+  const btn  = document.getElementById('send-changes-btn');
+  if (note) note.classList.add('open');
+  if (btn)  btn.style.display = '';
+  note?.focus();
+}
+
+async function submitApproval(approvalId, status) {
+  const note = document.getElementById('change-note')?.value?.trim() || '';
+  if (status === 'changes_requested' && !note) {
+    showChangeNote();
+    return;
+  }
+  const actions = document.getElementById('approval-actions');
+  if (actions) actions.innerHTML = '<span style="font-size:14px;color:var(--sub)">Submitting…</span>';
+  try {
+    const res = await fetch(`${WORKER_URL}/api/approve?id=${encodeURIComponent(window._orderId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approval_id: approvalId, status, note: note || null }),
+    });
+    if (!res.ok) throw new Error();
+    fetchOrder(window._orderId);
+  } catch {
+    if (actions) actions.innerHTML = '<span style="color:var(--danger);font-size:14px">Something went wrong. Please try again.</span>';
+  }
+}
+
 async function lookup() {
   const id = (document.getElementById('oid')?.value || '').trim();
   if (!id) return;
@@ -520,6 +678,7 @@ async function lookup() {
 }
 
 async function fetchOrder(id) {
+  window._orderId = id;
   renderLoading();
   try {
     const res = await fetch(`${WORKER_URL}/api/track?id=${encodeURIComponent(id)}`);
